@@ -1,0 +1,1 @@
+< NewLineInStr.jack, 1, Error: new line in string constant, ERR >

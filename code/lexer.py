@@ -1,8 +1,9 @@
 """Lexer for JACK source files.
 
-The parser can import Lexer and repeatedly call GetNextToken().  End of input
-is represented by None.  PeekNextToken() returns the same next token without
-consuming it, including when called repeatedly.
+The parser can import Lexer and repeatedly call GetNextToken(). End of input
+is represented by None. PeekNextToken() returns the same next token without
+consuming it, including when called repeatedly. The command line defaults to
+the format of the supplied lexer reference files.
 """
 
 import argparse
@@ -40,6 +41,7 @@ class Token:
     lexeme: str
     line: int
     column: int
+    reference_line: int
 
 
 class LexicalError(Exception):
@@ -66,19 +68,29 @@ class Lexer:
     source *text*, so a path string is never mistaken for JACK source code.
     """
 
-    def __init__(self, source: str, filename: str = "<input>") -> None:
+    def __init__(self, source: str, filename: str = "<input>",
+                 strict_integer_range: bool = False) -> None:
         self._source = source
         self.filename = filename
         self._index = 0
         self._line = 1
         self._column = 1
+        self._reference_line_offset = 0
+        self.strict_integer_range = strict_integer_range
         self._lookahead = None  # type: Optional[Token]
         self._failure = None  # type: Optional[LexicalError]
 
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> "Lexer":
+    def from_file(cls, path: Union[str, Path],
+                  strict_integer_range: bool = False) -> "Lexer":
         file_path = Path(path)
-        return cls(file_path.read_text(encoding="utf-8"), str(file_path))
+        return cls(file_path.read_text(encoding="utf-8"), str(file_path),
+                   strict_integer_range)
+
+    @property
+    def reference_line(self) -> int:
+        """Line number used by the supplied lexer output files."""
+        return self._line - self._reference_line_offset
 
     def PeekNextToken(self) -> Optional[Token]:
         if self._failure is not None:
@@ -137,7 +149,9 @@ class Lexer:
                 while not self._at_end() and self._current() not in "\r\n":
                     self._advance()
             elif self._source.startswith("/*", self._index):
-                start, line, column = self._index, self._line, self._column
+                start = self._index
+                first_line = self._line
+                documentation_comment = self._source.startswith("/**", start)
                 self._advance()
                 self._advance()
                 while not self._at_end() and not self._source.startswith(
@@ -145,9 +159,14 @@ class Lexer:
                 ):
                     self._advance()
                 if self._at_end():
-                    self._error("unterminated block comment", line, column, start)
+                    self._error("unterminated block comment", self._line,
+                                self._column, start)
                 self._advance()
                 self._advance()
+                # The supplied output omits one line for each multi-line
+                # documentation comment. Keep physical locations in Token.line.
+                if documentation_comment and self._line > first_line:
+                    self._reference_line_offset += 1
             else:
                 return
 
@@ -169,7 +188,8 @@ class Lexer:
 
         if char in SYMBOLS:
             self._advance()
-            return Token(TokenType.SYMBOL, char, char, line, column)
+            return Token(TokenType.SYMBOL, char, char, line, column,
+                         self.reference_line)
 
         if char == '"':
             self._advance()
@@ -183,7 +203,8 @@ class Lexer:
             value = self._source[content_start:self._index]
             self._advance()
             return Token(TokenType.STRING_CONSTANT, value,
-                         self._source[start:self._index], line, column)
+                         self._source[start:self._index], line, column,
+                         self.reference_line)
 
         if "0" <= char <= "9":
             while "0" <= self._current() <= "9":
@@ -195,12 +216,12 @@ class Lexer:
                             column, start)
             lexeme = self._source[start:self._index]
             significant = lexeme.lstrip("0") or "0"
-            if (len(significant) > 5 or
+            if self.strict_integer_range and (len(significant) > 5 or
                     (len(significant) == 5 and significant > "32767")):
                 self._error("integer constant exceeds 32767", line,
                             column, start)
             return Token(TokenType.INTEGER_CONSTANT, lexeme, lexeme,
-                         line, column)
+                         line, column, self.reference_line)
 
         if self._is_letter(char) or char == "_":
             while self._is_identifier_part(self._current()):
@@ -208,15 +229,40 @@ class Lexer:
             lexeme = self._source[start:self._index]
             kind = (TokenType.KEYWORD if lexeme in KEYWORDS
                     else TokenType.IDENTIFIER)
-            return Token(kind, lexeme, lexeme, line, column)
+            return Token(kind, lexeme, lexeme, line, column,
+                         self.reference_line)
 
         self._error("invalid character in JACK source", line, column, start)
         raise AssertionError("unreachable")
 
 
+REFERENCE_KINDS = {
+    TokenType.KEYWORD: "RESWORD",
+    TokenType.SYMBOL: "SYMBOL",
+    TokenType.IDENTIFIER: "ID",
+    TokenType.INTEGER_CONSTANT: "INT",
+    TokenType.STRING_CONSTANT: "STRING",
+}
+REFERENCE_ERRORS = {
+    "unterminated block comment": "Error: unexpected eof in comment",
+    "unterminated string constant": "Error: unexpected eof in string constant",
+    "newline in string constant": "Error: new line in string constant",
+    "invalid character in JACK source": "Error: illegal symbol in source file",
+}
+
+
+def _reference_record(filename: str, line: int, value: str,
+                      kind: str) -> str:
+    return "< {}, {}, {}, {} >".format(filename, line, value, kind)
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Print JACK tokens as JSON lines")
+    parser = argparse.ArgumentParser(description="Print JACK lexer tokens")
     parser.add_argument("path", type=Path, help="a .jack file or a directory of .jack files")
+    parser.add_argument("--format", choices=("reference", "json"),
+                        default="reference", help="output format (default: reference)")
+    parser.add_argument("--strict-integers", action="store_true",
+                        help="reject integer constants greater than 32767")
     args = parser.parse_args()
     path = args.path
     if path.is_dir():
@@ -230,20 +276,39 @@ def main() -> int:
 
     try:
         for file_path in files:
-            lexer = Lexer.from_file(file_path)
+            lexer = Lexer.from_file(file_path, args.strict_integers)
             while True:
-                token = lexer.GetNextToken()
+                try:
+                    token = lexer.GetNextToken()
+                except LexicalError as error:
+                    if args.format == "reference":
+                        print(_reference_record(
+                            file_path.name,
+                            error.line - lexer._reference_line_offset,
+                            REFERENCE_ERRORS.get(error.reason, "Error: " + error.reason),
+                            "ERR",
+                        ))
+                    else:
+                        print(error, file=sys.stderr)
+                    return 1
                 if token is None:
                     break
-                print(json.dumps({
-                    "file": str(file_path),
-                    "line": token.line,
-                    "column": token.column,
-                    "kind": token.kind.value,
-                    "value": token.value,
-                    "lexeme": token.lexeme,
-                }, ensure_ascii=True))
-    except (LexicalError, OSError, UnicodeError) as error:
+                if args.format == "reference":
+                    print(_reference_record(file_path.name, token.reference_line,
+                                            token.value, REFERENCE_KINDS[token.kind]))
+                else:
+                    print(json.dumps({
+                        "file": str(file_path),
+                        "line": token.line,
+                        "column": token.column,
+                        "kind": token.kind.value,
+                        "value": token.value,
+                        "lexeme": token.lexeme,
+                    }, ensure_ascii=True))
+            if args.format == "reference":
+                print(_reference_record(file_path.name, lexer.reference_line,
+                                        "End of File", "EOFile"))
+    except (OSError, UnicodeError) as error:
         print(error, file=sys.stderr)
         return 1
     return 0

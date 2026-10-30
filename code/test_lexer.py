@@ -67,6 +67,20 @@ class LexerTests(unittest.TestCase):
     def test_empty_file_and_line_comment_at_eof(self):
         self.assertEqual(scan(" \r\n// comment"), [])
 
+    def test_reference_integer_classification_and_strict_mode(self):
+        self.assertEqual([token.value for token in scan("32768 78658996 64656")],
+                         ["32768", "78658996", "64656"])
+        with self.assertRaises(LexicalError):
+            Lexer("32768", strict_integer_range=True).GetNextToken()
+
+    def test_reference_line_count_for_multiline_doc_comments(self):
+        lexer = Lexer("/**\n * doc\n */\nclass X {}")
+        token = lexer.GetNextToken()
+        self.assertEqual((token.line, token.reference_line), (4, 3))
+        normal = Lexer("/*\n ordinary\n */\nclass X {}")
+        token = normal.GetNextToken()
+        self.assertEqual((token.line, token.reference_line), (4, 4))
+
     def test_errors_stop_scanning_with_location_and_reason(self):
         cases = [
             ('"unfinished', "unterminated string constant"),
@@ -79,12 +93,13 @@ class LexerTests(unittest.TestCase):
         ]
         for source, reason in cases:
             with self.subTest(source=source):
-                lexer = Lexer(source, "bad.jack")
+                lexer = Lexer(source, "bad.jack", strict_integer_range=True)
                 with self.assertRaises(LexicalError) as caught:
                     lexer.PeekNextToken()
                 error = caught.exception
                 self.assertEqual((error.filename, error.line, error.column),
-                                 ("bad.jack", 1, 1))
+                                 ("bad.jack", 1,
+                                  len(source) + 1 if source.startswith("/*") else 1))
                 self.assertIn(reason, str(error))
                 self.assertTrue(error.near)
                 with self.assertRaises(LexicalError) as repeated:
@@ -97,6 +112,12 @@ class LexerTests(unittest.TestCase):
         with self.assertRaises(LexicalError) as caught:
             lexer.GetNextToken()
         self.assertEqual((caught.exception.line, caught.exception.column), (2, 1))
+
+    def test_unterminated_comment_reports_end_of_file_line(self):
+        lexer = Lexer("/* comment\ncontinues\n")
+        with self.assertRaises(LexicalError) as caught:
+            lexer.GetNextToken()
+        self.assertEqual((caught.exception.line, caught.exception.column), (3, 1))
 
 
 if __name__ == "__main__":

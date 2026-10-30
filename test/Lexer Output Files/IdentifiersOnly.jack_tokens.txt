@@ -1,0 +1,12 @@
+< IdentifiersOnly.jack, 1, id, ID >
+< IdentifiersOnly.jack, 2, id1, ID >
+< IdentifiersOnly.jack, 3, _id, ID >
+< IdentifiersOnly.jack, 4, _id1, ID >
+< IdentifiersOnly.jack, 5, identifier, ID >
+< IdentifiersOnly.jack, 6, x, ID >
+< IdentifiersOnly.jack, 7, y_1, ID >
+< IdentifiersOnly.jack, 8, _1x, ID >
+< IdentifiersOnly.jack, 9, _1_x, ID >
+< IdentifiersOnly.jack, 10, _1_y_rt, ID >
+< IdentifiersOnly.jack, 11, xyz_, ID >
+< IdentifiersOnly.jack, 12, End of File, EOFile >

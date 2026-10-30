@@ -1,0 +1,19 @@
+< IntegersOnly.jack, 1, 1, INT >
+< IntegersOnly.jack, 2, 123, INT >
+< IntegersOnly.jack, 3, 456, INT >
+< IntegersOnly.jack, 3, 89, INT >
+< IntegersOnly.jack, 4, 1, INT >
+< IntegersOnly.jack, 4, 1, INT >
+< IntegersOnly.jack, 4, 1, INT >
+< IntegersOnly.jack, 5, 9, INT >
+< IntegersOnly.jack, 5, 0, INT >
+< IntegersOnly.jack, 5, 00, INT >
+< IntegersOnly.jack, 5, 11, INT >
+< IntegersOnly.jack, 6, 78658996, INT >
+< IntegersOnly.jack, 7, 64656, INT >
+< IntegersOnly.jack, 7, 0, INT >
+< IntegersOnly.jack, 7, 1, INT >
+< IntegersOnly.jack, 7, 1, INT >
+< IntegersOnly.jack, 7, 0, INT >
+< IntegersOnly.jack, 7, 1, INT >
+< IntegersOnly.jack, 7, End of File, EOFile >

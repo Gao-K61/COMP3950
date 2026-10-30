@@ -1,0 +1,22 @@
+< KeywordsOnly.jack, 1, class, RESWORD >
+< KeywordsOnly.jack, 1, constructor, RESWORD >
+< KeywordsOnly.jack, 2, method, RESWORD >
+< KeywordsOnly.jack, 2, function, RESWORD >
+< KeywordsOnly.jack, 3, int, RESWORD >
+< KeywordsOnly.jack, 6, boolean, RESWORD >
+< KeywordsOnly.jack, 7, char, RESWORD >
+< KeywordsOnly.jack, 8, void, RESWORD >
+< KeywordsOnly.jack, 8, var, RESWORD >
+< KeywordsOnly.jack, 8, static, RESWORD >
+< KeywordsOnly.jack, 8, field, RESWORD >
+< KeywordsOnly.jack, 8, let, RESWORD >
+< KeywordsOnly.jack, 9, do, RESWORD >
+< KeywordsOnly.jack, 9, if, RESWORD >
+< KeywordsOnly.jack, 10, else, RESWORD >
+< KeywordsOnly.jack, 11, while, RESWORD >
+< KeywordsOnly.jack, 11, return, RESWORD >
+< KeywordsOnly.jack, 11, true, RESWORD >
+< KeywordsOnly.jack, 12, false, RESWORD >
+< KeywordsOnly.jack, 13, null, RESWORD >
+< KeywordsOnly.jack, 13, this, RESWORD >
+< KeywordsOnly.jack, 13, End of File, EOFile >
